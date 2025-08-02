@@ -1,0 +1,25 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Welcome to Our Flask App</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+</head>
+<body>
+  <div class="container">
+    <h1>👋 Welcome!</h1>
+    <p> 
+      We use offline, small but well capable coding language models, to run through full project repositories or merge request changes to analyze and understand the code base.
+      <br><br>
+      These models go through modules and suggest optimizations, discover potential bugs and document in layman terms on-the-go. Finally we put everything together with another offline LLM and create a whole guidebook for the project in simple English.
+      <br><br>
+      This can be used to make the modules better or just for understanding a legacy project in a few minutes. Everything is done keeping the codebase to our own servers, without sharing any IP with any third party API.
+  </p>
+    <a href="/flask-api/home" class="btn">Get Started</a>
+  </div>
+</body>
+</html>
