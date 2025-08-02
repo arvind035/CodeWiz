@@ -1,5 +1,4 @@
 
-
 # 🧙‍♂️ CodeWiz – Your Smart Code Companion
 
 **CodeWiz** is an AI-powered assistant designed to help developers, tech leads, and software architects understand, review, and optimize codebases, MRs faster and more efficiently.
