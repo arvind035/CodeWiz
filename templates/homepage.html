@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Smart Result Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='homepage.css') }}">
+  <!-- <script src="{{ url_for('static', filename='script.js') }}"></script> -->
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      // Attach event to all read-more links
+      document.querySelectorAll('.read-more').forEach(link => {
+        link.addEventListener('click', function (e) {
+          e.preventDefault();
+          const modal = document.getElementById('readMoreModal');
+          document.getElementById('modal-title').innerText = this.dataset.title;
+          document.getElementById('modal-content').innerText = this.dataset.content;
+          modal.style.display = 'block';
+        });
+      });
+
+      // Close modal when X is clicked
+      document.querySelector('.close').addEventListener('click', function () {
+        document.getElementById('readMoreModal').style.display = 'none';
+      });
+
+      // Close modal when clicked outside
+      window.addEventListener('click', function (e) {
+        if (e.target === document.getElementById('readMoreModal')) {
+          document.getElementById('readMoreModal').style.display = 'none';
+        }
+      });
+    });
+  </script>
+
+
+</head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<body>
+
+<header>
+  CodeWiz
+</header>
+
+<div class="container">
+  <form id="myForm" class="input-box">
+    <input type="text" name="user_input_link" placeholder="Enter your MR or Repo link here..." required>
+    <input type="text" name="user_input_type" placeholder="Enter the type..." required>
+    <input type="text" name="user_input_language" placeholder="Enter the code language...">
+    <!-- <input type="text" name="user_input_model" placeholder="Enter the model type..." required> -->
+    <button type="submit">Submit</button>
+    <button type="button" id="reloadButton">Reload</button>
+    <button type="button" id="downloadPdfBtn" style="display: none; margin-top: 10px;">Download PDF</button>
+
+  </form>
+
+  <div id="carousel-container" style="display: none;">
+    <!-- Dynamic card sets will be injected here -->
+  </div>
+  
+</div>
+<br>
+<div id="static-card-container">
+  <div class="row">
+    <div class="card">
+      <h3>Code Refactor</h3>
+      <p id="result-0">This section contains suggestions for improving and simplifying your code structure.</p>
+    </div>
+    <div class="card">
+      <h3>Documentation Status</h3>
+      <p id="result-1">Overview of documentation quality.</p>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h3>Bug Identification</h3>
+      <p id="result-2">Analyzed issues and potential bugs.</p>
+    </div>
+    <div class="card">
+      <h3>Bug Fixes Code</h3>
+      <p id="result-3">Suggested code fixes.</p>
+    </div>
+  </div>
+
+  <div class="bottom-card">
+    <h3>Code Optimization</h3>
+    <p id="result-4">Optimization insights.</p>
+  </div>
+</div>
+
+<div id="readMoreModal" class="modal">
+  <div class="modal-content">
+    <span class="close">&times;</span>
+    <h2 id="modal-title">Title Here</h2>
+    <p id="modal-content">Content goes here...</p>
+  </div>
+
+</div>
+<br>
+<div>
+  <div class="carousel-controls">
+    <button id="prevBtn" disabled>Previous</button>
+    <button id="nextBtn" disabled>Next</button>
+  </div>
+</div>
+
+<div id="processingModal" class="modal" style="display: none;">
+  <div class="modal-content">
+    <h2>Processing...</h2>
+    <p id="processing-message">Your analysis is in progress. Please wait.</p>
+  </div>
+</div>
+
+<div id="quickCoder">
+  <h2>Code Helper</h2>
+  <div>
+    <button id="triggerCustomAction">Quick Coder</button>
+  </div>
+  <br>
+
+  <!-- Dropdown -->
+  <label for="SelectLanguage" style="font-weight: 600;">Select a Language:</label>
+  <select id="customSelect" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px;">
+    <option value="">-- Choose an option --</option>
+    <option value="python">Python</option>
+    <option value="java">Java</option>
+    <option value="javaScript">JavaScipt</option>
+  </select>
+
+  <textarea
+    id="RequestType"
+    placeholder="Enter your request..."
+    rows="6"
+    style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;"
+  ></textarea>
+
+
+  <textarea
+    id="OutputText"
+    rows="6"
+    readonly
+    placeholder="Output will appear here..."
+    style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;"
+  ></textarea>
+</div>
+
+
+
+<script>
+  function setupExpandableText(results) {
+  results.forEach((fullText, index) => {
+    const pTag = document.getElementById(`result-${index}`);
+
+    if (pTag) {
+      pTag.setAttribute('data-full', fullText);
+      pTag.textContent = fullText.slice(0, 100) + '...';
+
+      // Remove any existing link first
+      const existingLink = document.getElementById(`toggle-${index}`);
+      if (existingLink) existingLink.remove();
+
+      // Create the "Read more" link that opens modal
+      const toggleLink = document.createElement('a');
+      toggleLink.href = '#';
+      toggleLink.id = `toggle-${index}`;
+      toggleLink.className = 'read-more';  // Important for modal to work
+      toggleLink.textContent = ' Read more';
+      toggleLink.setAttribute('data-title', document.querySelectorAll('.card h3, .bottom-card h3')[index].innerText);
+      toggleLink.setAttribute('data-content', fullText);
+      toggleLink.style.marginLeft = '5px';
+
+      pTag.appendChild(toggleLink);
+    }
+  });
+
+  // Re-bind modal behavior to dynamically added links
+  document.querySelectorAll('.read-more').forEach(link => {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      const modal = document.getElementById('readMoreModal');
+      document.getElementById('modal-title').innerText = this.dataset.title;
+      document.getElementById('modal-content').innerText = this.dataset.content;
+      modal.style.display = 'block';
+    });
+  });
+}
+
+function setupExpandableTextForFile(fileIndex, sectionTexts) {
+  sectionTexts.forEach((fullText, sectionIndex) => {
+    const pTag = document.getElementById(`result-${fileIndex}-${sectionIndex}`);
+
+    if (pTag) {
+      pTag.setAttribute('data-full', fullText);
+      pTag.textContent = fullText.slice(0, 100) + '...';
+
+      const existingLink = document.getElementById(`toggle-${fileIndex}-${sectionIndex}`);
+      if (existingLink) existingLink.remove();
+
+      const toggleLink = document.createElement('a');
+      toggleLink.href = '#';
+      toggleLink.id = `toggle-${fileIndex}-${sectionIndex}`;
+      toggleLink.className = 'read-more';
+      toggleLink.textContent = ' Read more';
+      toggleLink.setAttribute('data-title', document.querySelectorAll('.card-set')[fileIndex].querySelectorAll('.card h3, .bottom-card h3')[sectionIndex].innerText);
+      toggleLink.setAttribute('data-content', fullText);
+      toggleLink.style.marginLeft = '5px';
+
+      pTag.appendChild(toggleLink);
+    }
+  });
+
+  document.querySelectorAll('.read-more').forEach(link => {
+    link.addEventListener('click', function (e) {
+      e.preventDefault();
+      const modal = document.getElementById('readMoreModal');
+      document.getElementById('modal-title').innerText = this.dataset.title;
+      document.getElementById('modal-content').innerText = this.dataset.content;
+      modal.style.display = 'block';
+    });
+  });
+}
+
+let currentIndex = 0;
+let cardSets = [];
+document.getElementById('myForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const formData = new FormData(e.target);
+  const userInputLink = formData.get('user_input_link');
+  const userInputType = formData.get('user_input_type');
+  const userInputLanguage = formData.get('user_input_language')
+  // const userInputModel = formData.get('user_input_model');
+
+  try {
+    // Call first API
+    const response1 = await fetch('/flask-api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_input_link: userInputLink,
+        req_type: userInputType,
+        user_input_language: userInputLanguage
+        // user_input_model: userInputModel
+      })
+    });
+    const data1 = await response1.json();
+    console.log('API 1 Response:', data1);
+
+    if (data1.message) {
+      // Show user message somewhere in your UI
+      const msgBox = document.getElementById('status-message');
+      if (msgBox) {
+        msgBox.innerText = data1.message;
+        msgBox.style.display = 'block';
+      }
+    }
+    const processingModal = document.getElementById('processingModal');
+    document.getElementById('processing-message').innerText = data1.message;
+    processingModal.style.display = 'block';
+
+    // Start polling for second API
+    let pollingAttempts = 0;
+    const maxAttempts = 20;
+    const intervalTime = 15000;
+
+    const pollInterval = setInterval(async () => {
+      pollingAttempts++;
+      console.log(`Polling attempt ${pollingAttempts}...`);
+
+      try {
+        const response2 = await fetch('/flask-api/polling', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+          user_input_link: userInputLink,
+          req_type: userInputType,
+          // user_input_model: userInputModel
+      })
+        });
+
+        const data2 = await response2.json();
+        console.log('API 2 Response:', data2);
+
+        if (data2.pdf_link) {
+          console.log("data found in pdf")
+          setupPdfDownload(data2.pdf_link);
+        }
+
+        const status = data2.status?.toLowerCase();
+        const results = data2.data;
+
+        // ✅ Keep popup shown while there's no data
+        if (!Array.isArray(results) || results.length === 0) {
+          document.getElementById('processingModal').style.display = 'block';
+          return; // Skip processing until we have content
+        }
+
+        // ✅ We have at least partial data — hide the popup
+        document.getElementById('processingModal').style.display = 'none';
+
+        if (Array.isArray(results)) {
+          const flatResults = Array.isArray(results[0]) ? results[0] : results;
+
+          const structuredResults = flatResults.map(file => {
+            const fileId = file.path || file.file_name || 'Unknown File';
+            const { path, file_name, module_name, ...rest } = file;
+            const sections = [];
+
+            for (const key in rest) {
+              const value = rest[key];
+              let cardText = "All Good!";
+
+              if (Array.isArray(value)) {
+                if (value.length > 0) {
+                  cardText = value.map(item => {
+                    if (typeof item === 'string') {
+                      return item;
+                    } else if (typeof item === 'object' && item !== null) {
+                      return Object.entries(item)
+                        .map(([k, v]) => `${capitalize(k)}: ${v}`)
+                        .join('\n');
+                    } else {
+                      return String(item);
+                    }
+                  }).join('\n\n');
+                }
+              } else if (typeof value === 'string') {
+                cardText = value.trim() !== '' ? value : "All Good!";
+              }
+
+              sections.push({
+                title: capitalize(key),
+                content: cardText
+              });
+            }
+
+            return { path: fileId, sections };
+          });
+
+          renderDynamicCarousel(structuredResults); // ✅ Live-update the carousel
+
+          // ✅ If fully done, stop polling
+          if (status === 'completed') {
+            clearInterval(pollInterval);
+            //document.getElementById('processingModal').style.display = 'none';
+            console.log('Status is Completed. Stopping polling.');
+          }
+        }
+
+        // Stop if max attempts hit
+        if (pollingAttempts >= maxAttempts) {
+          clearInterval(pollInterval);
+          //document.getElementById('processingModal').style.display = 'none';
+          console.warn('Polling stopped after max attempts.');
+        }
+
+      } catch (pollError) {
+        console.error('Polling error:', pollError);
+        if (pollingAttempts >= maxAttempts) {
+          clearInterval(pollInterval);
+        }
+      }
+    }, intervalTime);
+
+
+  } catch (error) {
+    console.error('Error calling API 1:', error);
+  }
+});
+
+document.getElementById('reloadButton').addEventListener('click', async function () {
+  const form = document.getElementById('myForm');
+  const formData = new FormData(form);
+  const userInputLink = formData.get('user_input_link');
+  const userInputType = formData.get('user_input_type');
+
+  try {
+    const checkResponse = await fetch('/flask-api/reload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        user_input_link: userInputLink,
+        req_type: userInputType
+      })
+    });
+
+    const checkData = await checkResponse.json();
+    if (checkData.pdf_link) {
+      setupPdfDownload(checkData.pdf_link);
+    }
+    const rawData = Array.isArray(checkData.data[0]) ? checkData.data[0] : checkData.data;
+
+    if (checkData.status === "Completed" || checkData.status === "Ongoing") {
+      const structured = transformRawData(rawData);
+      renderDynamicCarousel(structured);
+
+      if (checkData.status === "Ongoing") {
+        document.getElementById('processingModal').style.display = 'block';
+        resumePolling(rawData, userInputLink, userInputType);
+      } else {
+        document.getElementById('processingModal').style.display = 'none';
+      }
+    } else {
+      alert(checkData.message || "No data found. Please submit again.");
+    }
+  } catch (error) {
+    console.error("Reload error:", error);
+    alert("Something went wrong. Please try again.");
+  }
+});
+
+
+
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function renderDynamicCarousel(files) {
+  const container = document.getElementById('carousel-container');
+  container.style.display = 'block';
+  document.getElementById('static-card-container').style.display = 'none';
+  container.innerHTML = '';
+  cardSets = [];
+
+  files.forEach((file, fileIndex) => {
+    const cardSet = document.createElement('div');
+    cardSet.className = 'card-set';
+    if (fileIndex === 0) cardSet.classList.add('active');
+
+    let cardHtml = `<h2 style="padding: 5px;">${file.path || file.file_name || 'Unknown File'}</h2>`;
+
+    file.sections.forEach((section, i) => {
+      if (i % 2 === 0) cardHtml += '<div class="row">';
+        const isAllGood = section.content.trim() === 'All Good!';
+    const cardClass = isAllGood ? 'card all-good' : 'card';
+    const contentId = `result-${fileIndex}-${i}`;
+
+    cardHtml += `
+      <div class="${cardClass}">
+        <h3>${section.title}</h3>
+        <p id="${contentId}">${section.content.slice(0, 100)}${isAllGood ? '' : '...'}</p>
+      </div>
+    `;
+
+    if (!isAllGood) {
+      setTimeout(() => {
+        const pTag = document.getElementById(contentId);
+        if (pTag) {
+          const toggleLink = document.createElement('a');
+          toggleLink.href = '#';
+          toggleLink.id = `toggle-${fileIndex}-${i}`;
+          toggleLink.className = 'read-more';
+          toggleLink.textContent = ' Read more';
+          toggleLink.setAttribute('data-title', section.title);
+          toggleLink.setAttribute('data-content', section.content);
+          toggleLink.style.marginLeft = '5px';
+          pTag.appendChild(toggleLink);
+        }
+
+        document.querySelectorAll('.read-more').forEach(link => {
+          link.addEventListener('click', function (e) {
+            e.preventDefault();
+            const modal = document.getElementById('readMoreModal');
+            document.getElementById('modal-title').innerText = this.dataset.title;
+            document.getElementById('modal-content').innerText = this.dataset.content;
+            modal.style.display = 'block';
+          });
+        });
+      }, 0);
+    }
+      if (i % 2 === 1 || i === file.sections.length - 1) cardHtml += '</div>';
+    });
+
+    cardSet.innerHTML = cardHtml;
+    container.appendChild(cardSet);
+    cardSets.push(cardSet);
+
+    const sectionTexts = file.sections.map(s => s.content);
+    // setupExpandableTextForFile(fileIndex, sectionTexts);
+  });
+
+  currentIndex = 0;
+  updateCarouselButtons();
+}
+
+
+document.getElementById('nextBtn').addEventListener('click', () => {
+  if (currentIndex < cardSets.length - 1) {
+    cardSets[currentIndex].classList.remove('active');
+    currentIndex++;
+    cardSets[currentIndex].classList.add('active');
+    updateCarouselButtons();
+  }
+});
+
+document.getElementById('prevBtn').addEventListener('click', () => {
+  if (currentIndex > 0) {
+    cardSets[currentIndex].classList.remove('active');
+    currentIndex--;
+    cardSets[currentIndex].classList.add('active');
+    updateCarouselButtons();
+  }
+});
+
+function updateCarouselButtons() {
+  document.getElementById('prevBtn').disabled = currentIndex === 0;
+  document.getElementById('nextBtn').disabled = currentIndex === cardSets.length - 1;
+}
+
+let isPollingActive = false;
+
+function resumePolling(existingResults = [], userInputLink, userInputType) {
+  if (isPollingActive) return;
+
+  isPollingActive = true;
+  let pollingAttempts = 0;
+  const maxAttempts = 20;
+  const intervalTime = 15000;
+
+  const pollInterval = setInterval(async () => {
+    pollingAttempts++;
+
+    try {
+      const response = await fetch('/flask-api/polling', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_input_link: userInputLink,
+          req_type: userInputType
+        })
+      });
+
+      const data2 = await response.json();
+      const status = (data2.status || '').trim().toLowerCase();
+      const results = data2.data || [];
+
+      if (!Array.isArray(results) || results.length === 0) {
+        document.getElementById('processingModal').style.display = 'block';
+        return;
+      }
+
+      document.getElementById('processingModal').style.display = 'none';
+
+      const merged = mergeResults(existingResults, results);
+      const structuredResults = transformRawData(merged);
+      renderDynamicCarousel(structuredResults);
+
+      if (status === 'completed') {
+        clearInterval(pollInterval);
+        document.getElementById('processingModal').style.display = 'none';
+        isPollingActive = false;
+        return;
+      }
+
+      if (pollingAttempts >= maxAttempts) {
+        clearInterval(pollInterval);
+        console.warn("Max polling attempts reached.");
+        isPollingActive = false;
+      }
+    } catch (error) {
+      console.error("Polling error:", error);
+      isPollingActive = false;
+    }
+  }, intervalTime);
+}
+
+
+function transformRawData(results) {
+  return results.map(file => {
+    const fileId = file.path || file.file_name || 'Unknown File';
+    const { path, file_name, module_name, ...rest } = file;
+    const sections = [];
+
+    for (const key in rest) {
+      const value = rest[key];
+      let cardText = "All Good!";
+
+      if (Array.isArray(value)) {
+        if (value.length > 0) {
+          cardText = value.map(item => {
+            if (typeof item === 'string') {
+              return item;
+            } else if (typeof item === 'object' && item !== null) {
+              return Object.entries(item)
+                .map(([k, v]) => `${capitalize(k)}: ${v}`)
+                .join('\n');
+            } else {
+              return String(item);
+            }
+          }).join('\n\n');
+        }
+      } else if (typeof value === 'string') {
+        cardText = value.trim() !== '' ? value : "All Good!";
+      }
+
+      sections.push({
+        title: capitalize(key),
+        content: cardText
+      });
+    }
+
+    return { path: fileId, sections };
+  });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  document.getElementById('triggerCustomAction').addEventListener('click', async () => {
+    const inputElement = document.getElementById('RequestType');
+    const outputBox = document.getElementById('OutputText');
+    const typeSelector = document.getElementById('customSelect');
+
+    if (!inputElement || !outputBox || !typeSelector) {
+      console.error("Required elements not found in DOM.");
+      return;
+    }
+
+    const input = inputElement.value.trim();
+    const type = typeSelector.value;
+
+    if (!input) {
+      outputBox.value = "Please enter some input first.";
+      return;
+    }
+
+    outputBox.value = "Processing...";
+
+    try {
+      const response = await fetch('/flask-api/code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: input,
+          user_input_language: type
+        })
+      });
+
+      const data = await response.json();
+      outputBox.value = data.data || "No response from server.";
+    } catch (error) {
+      console.error("Quick Coder API error:", error);
+      outputBox.value = "Error occurred while processing your request.";
+    }
+  });
+});
+
+
+let pdfBinaryContent = null;  
+
+
+function setupPdfDownload(textContent) {
+  const downloadBtn = document.getElementById("downloadPdfBtn");
+  downloadBtn.style.display = "inline-block";
+
+  downloadBtn.onclick = async function () {
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+
+      const margin = 10;
+      const lineHeight = 10;
+      const maxLineWidth = 180; // page width - margin * 2
+      const lines = doc.splitTextToSize(textContent, maxLineWidth);
+
+      lines.forEach((line, i) => {
+        doc.text(line, margin, margin + lineHeight * i);
+      });
+
+      doc.save("analysis_output.pdf");
+    } catch (err) {
+      console.error("PDF generation failed:", err);
+      alert("Could not generate PDF.");
+    }
+  };
+}
+
+</script>
+
+</body>
+</html>
